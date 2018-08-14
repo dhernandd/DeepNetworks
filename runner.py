@@ -23,6 +23,7 @@ import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
 from src.vae import VAE
+from src.datetools import addDateTime
 
 RUN_MODE = 'train'
 DATASET = 'mnist'
@@ -31,6 +32,7 @@ LOCAL_RLT_DIR = "/Users/danielhernandez/work_rslts/norm_flows/"
 LOCAL_DATA_DIR = "./data/" 
 THIS_DATA_DIR = 'allen/'
 RESTORE_FROM_CKPT = False
+VERSION = '0.1'
 
 
 LAT_DIM = 10
@@ -47,6 +49,7 @@ flags.DEFINE_string('mode', RUN_MODE, "The mode in which to run. Can be ['train'
 flags.DEFINE_string('dataset', DATASET, "")
 flags.DEFINE_string('model', MODEL, "")
 flags.DEFINE_string('rlt_dir', LOCAL_RLT_DIR, "")
+flags.DEFINE_string('version', VERSION, "")
 flags.DEFINE_boolean('restore_from_ckpt', RESTORE_FROM_CKPT, ("Should I restore a "
                                                 "previously trained model?") )
 
@@ -69,12 +72,15 @@ def load_data(params):
             mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
             mnist.train.images[mnist.train.images == 0.] += 0.001
             mnist.train.images[mnist.train.images == 1.] -= 0.001
+            mnist.validation.images[mnist.validation.images == 0.] += 0.001
+            mnist.validation.images[mnist.validation.images == 1.] -= 0.001
             Ytrain = mnist.train.images
+            Yvalid = mnist.validation.images
         else:
             pass
         
         params.obs_dim = Ytrain.shape[1]
-        datadict = {'Ytrain' : Ytrain}
+        datadict = {'Ytrain' : Ytrain, 'Yvalid' : Yvalid}
     
     return datadict
 
@@ -103,7 +109,10 @@ def train(params):
             print("Done.")
         else:
             sess.run(tf.global_variables_initializer())
-        model.train(datadict)
+            rlt_dir = params.rlt_dir + params.version + '/' + addDateTime() + '/'
+            if not os.path.isdir(rlt_dir):
+                os.makedirs(rlt_dir)
+        model.train(datadict, rlt_dir)
 
 def main(_):
     """

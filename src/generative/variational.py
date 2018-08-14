@@ -23,23 +23,32 @@ class MultiLayerPerceptron(object):
 
 
 class LogitNormal(tf.distributions.Normal):
-
+    """
+    ?? I think this should inherit from distribution.Distribution, not from
+    Normal ??
+    """
     def __init__(self, loc, scale):
         super(LogitNormal, self).__init__(loc=loc, scale=scale)
 
     def log_prob(self, value, name='log_prob'):
+        """
+        l(v) = log(v/(1-v))
+        L = 
+        """
         logit_value = tf.log(value / (1 - value))
         log_prob = super(LogitNormal, self).log_prob(logit_value, name=name)
         return log_prob - tf.log(value) - tf.log(1 - value)
 
     def sample(self, sample_shape=(), seed=None, name='sample'):
-            sample = super(LogitNormal, self).sample(
-                sample_shape=sample_shape, seed=seed, name=name)
-            return tf.sigmoid(sample)
+        sample = super(LogitNormal, self).sample(sample_shape=sample_shape,
+                                                 seed=seed, name=name)
+        return tf.sigmoid(sample)
 
 
 class ReparameterizedDistribution(object):
-    """Reparameterized Distributions for AEVB."""
+    """
+    Reparameterized Distributions for AEVB.
+    """
 
     def __init__(self, distribution, neural_net_function, **kwargs):
         """Neural net functions to the parameters of the given dist.
@@ -53,7 +62,7 @@ class ReparameterizedDistribution(object):
             Specific architecture e.g. MultiLayerPerceptron that transforms
             input into parameters of the distribution.
         **kwargs:
-            Furtuer parameters to be passed to the neural_net_function i.e.
+            Futur parameters to be passed to the neural_net_function i.e.
             input tensor, layers, etc.
         """
         self.dist = None
@@ -63,12 +72,10 @@ class ReparameterizedDistribution(object):
             # Rectify standard deviation so that it is a smooth
             # positive function
             self.param_b = tf.nn.softmax(self.param_b + 1e-6)
-            self.dist = tf.distributions.Normal(
-                    loc=self.param_a, scale=self.param_b)
+            self.dist = tf.distributions.Normal(loc=self.param_a, scale=self.param_b)
         elif distribution is LogitNormal:
             self.param_b = tf.nn.softmax(self.param_b + 1e-6)
-            self.dist = LogitNormal(
-                    loc=self.param_a, scale=self.param_b)
+            self.dist = LogitNormal(loc=self.param_a, scale=self.param_b)
 
     def get_distribution(self):
         """Returns the reparameterized distributions.

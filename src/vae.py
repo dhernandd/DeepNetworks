@@ -30,7 +30,8 @@ def data_iterator_simple(Ydata, batch_size=1, shuffle=True):
     
     for i in range(0, len(Ydata), batch_size):
         yield Ydata[l_inds[i:i+batch_size]]
-            
+
+
 class VAE():
     """
     """
@@ -50,16 +51,7 @@ class VAE():
             shape_dec_units = [num_dec_units, num_dec_units*2, obs_dim]
             num_mc_samps = params.num_mc_samps
             X = tf.placeholder(dtype=tf.float64, shape=[batch_sz, obs_dim], name='input')
-#             if NORM_FLOW:
-#                 encoder = FlowConditionalVariable(
-#                     dim_x=lat_dim, y=x, flow_layers=N_LAYER, hidden_units=ENC_UNITS[:-1])
-#                 z, log_q = encoder.sample_log_prob(n_samples=MC_EX)
-#                 if batch_sz == 1:
-#                     z = tf.expand_dims(z, axis=0)
-#                     log_q = tf.expand_dims(log_q, axis=0)
-#                 z = tf.transpose(z, [1, 0, 2])
-#                 log_q = tf.transpose(log_q, [1, 0])
-#             else:
+
             # Standard reparametrized normal
             encoder = ReparameterizedDistribution(tf.distributions.Normal, 
                                                   MultiLayerPerceptron,
@@ -80,9 +72,13 @@ class VAE():
 #             self.elbo = tf.reduce_mean(elbo, axis=0)
             self.elbo = tf.reduce_mean(elbo)
             self.elbo_summ = tf.summary.scalar('ELBO', self.elbo)
-
-            self.train_op = tf.train.AdagradOptimizer(learning_rate=.01).minimize(-self.elbo)
+            
+            self.train_step = tf.get_variable("global_step", [], tf.int64,
+                                              tf.zeros_initializer(), trainable=False)
+            adagrad_trainer = tf.train.AdagradOptimizer(learning_rate=.01)
+            self.train_op = adagrad_trainer.minimize(-self.elbo, global_step=self.train_step)
             #train_op = tf.train.AdamOptimizer(learning_rate=.01).minimize(- elbo)
+            self.saver = tf.train.Saver(tf.global_variables())
 
     def train(self, datadict, rlt_dir=""):
         """
@@ -90,10 +86,12 @@ class VAE():
         params = self.params
         
         Ytrain = datadict['Ytrain']
-#         nsamps = Ytrain.shape[0]
+        Yvalid = datadict['Yvalid']
+#         nvalid = Yvalid.shape[0]
         merged_summaries = tf.summary.merge([self.elbo_summ])
         self.writer = tf.summary.FileWriter(addDateTime('./logs/log'))
         
+        valid_cost = -np.inf
         sess = tf.get_default_session()
         for ep in range(params.num_epochs):
             iterator_Y = data_iterator_simple(Ytrain, batch_size=params.batch_sz)
@@ -108,5 +106,27 @@ class VAE():
                 if not ctr % 500:
                     print('ELBO:', elbo_avg/500)
                     elbo_avg = 0
+
+                    iter_Yvalid = data_iterator_simple(Yvalid[:500],
+                                                       batch_size=params.batch_sz)
+                    new_elbo_valid = sum([sess.run(self.elbo, feed_dict={'VAE/input:0': batch_v})
+                                      for batch_v in iter_Yvalid])/500
+                    if new_elbo_valid > valid_cost:
+                        valid_cost = new_elbo_valid
+                        print('ELBO(Valid):', valid_cost, '... Saving...')
+                        self.saver.save(sess, rlt_dir+'vae', global_step=self.train_step)
                 ctr += 1
-                
+  
+
+
+
+#             if NORM_FLOW:
+#                 encoder = FlowConditionalVariable(
+#                     dim_x=lat_dim, y=x, flow_layers=N_LAYER, hidden_units=ENC_UNITS[:-1])
+#                 z, log_q = encoder.sample_log_prob(n_samples=MC_EX)
+#                 if batch_sz == 1:
+#                     z = tf.expand_dims(z, axis=0)
+#                     log_q = tf.expand_dims(log_q, axis=0)
+#                 z = tf.transpose(z, [1, 0, 2])
+#                 log_q = tf.transpose(log_q, [1, 0])
+#             else:
