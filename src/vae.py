@@ -16,6 +16,8 @@
 import numpy as np
 import tensorflow as tf
 
+from .datetools import addDateTime
+
 from .generative.variational import ( ReparameterizedDistribution, MultiLayerPerceptron,
                                       LogitNormal )
 
@@ -75,7 +77,10 @@ class VAE():
 
             # ELBO
             elbo = decoder.log_prob(X) + tf.reduce_mean(prior.log_prob(z), axis=-1) - log_q
-            self.elbo = tf.reduce_mean(elbo, axis=0)
+#             self.elbo = tf.reduce_mean(elbo, axis=0)
+            self.elbo = tf.reduce_mean(elbo)
+            self.elbo_summ = tf.summary.scalar('ELBO', self.elbo)
+
             self.train_op = tf.train.AdagradOptimizer(learning_rate=.01).minimize(-self.elbo)
             #train_op = tf.train.AdamOptimizer(learning_rate=.01).minimize(- elbo)
 
@@ -86,13 +91,19 @@ class VAE():
         
         Ytrain = datadict['Ytrain']
 #         nsamps = Ytrain.shape[0]
+        merged_summaries = tf.summary.merge([self.elbo_summ])
+        self.writer = tf.summary.FileWriter(addDateTime('./logs/log'))
+        
         sess = tf.get_default_session()
-        for _ in range(params.num_epochs):
+        for ep in range(params.num_epochs):
             iterator_Y = data_iterator_simple(Ytrain, batch_size=params.batch_sz)
             elbo_avg = ctr = 0
             for batch in iterator_Y:
                 _, elbo_value = sess.run([self.train_op, self.elbo],
                                             feed_dict={'VAE/input:0': batch})
+
+                summaries = sess.run(merged_summaries, feed_dict={'VAE/input:0': batch})
+                self.writer.add_summary(summaries, ep)                
                 elbo_avg += elbo_value
                 if not ctr % 500:
                     print('ELBO:', elbo_avg/500)

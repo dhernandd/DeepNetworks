@@ -177,6 +177,5 @@ class AutoEncodingVariationalBayes(object):
     def loss(self, observations):
         """Computes the current evidence lower-bound."""
         with self.graph.as_default():
-            return self.session.run(
-                self.loss, feed_dict={self.x: observations})
+            return self.session.run(self.loss, feed_dict={self.x: observations})
 

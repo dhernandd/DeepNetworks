@@ -14,9 +14,6 @@
 #
 # ==============================================================================
 import os
-import pickle
-
-import numpy as np
 
 # import matplotlib
 # matplotlib.use('Agg')
@@ -26,10 +23,6 @@ import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
 from src.vae import VAE
-# from src.deep_feed_forward import *
-# from src.generative.variational import *
-# from src.generative.normalizing_flow import *
-
 
 RUN_MODE = 'train'
 DATASET = 'mnist'
@@ -99,7 +92,6 @@ def train(params):
     """
     datadict = load_data(params)
     
-#     rlt_dir = params.rlt_dir
     model = build(params)
     sess = tf.get_default_session()
     with sess:
@@ -116,7 +108,6 @@ def train(params):
 def main(_):
     """
     """
-#     data_path = params.local_data_dir + params.this_data_dir
     if params.mode == 'train':
         sess = tf.Session()
         with sess.as_default():
